@@ -17,8 +17,7 @@ interface Statuses {
 }
 
 interface UploadResponse {
-    txId?: string;
-    error?: string;
+    txId: string;
 }
 
 export default class Preweave {
@@ -52,9 +51,7 @@ export default class Preweave {
                 res = await chunkedDataUploader(Readable.from(Buffer.from(data)), size, this.url, { contentType: type });
             }
         } catch (e) {
-            return {
-                error: e.response.data
-            };
+            throw new Error(`Error from PreWeave node: ${e.response.data}`);
         }
 
 
@@ -81,9 +78,7 @@ export default class Preweave {
                 res = await chunkedDataUploader(rstrm, size, this.url, { contentType: type });
             }
         } catch (e) {
-            return {
-                error: e.response.data
-            };
+            throw new Error(`Error from PreWeave node: ${e.response.data}`);
         }
 
         return {
