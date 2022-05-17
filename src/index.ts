@@ -17,7 +17,8 @@ interface Statuses {
 }
 
 interface UploadResponse {
-    txId: string;
+    txId?: string;
+    error?: string;
 }
 
 export default class Preweave {
@@ -44,11 +45,18 @@ export default class Preweave {
         // @ts-ignore
         const size = data.length;
         let res;
-        if (size < (10 * Preweave.MiB)) {
-            res = await this.axios.post("/data", data, { headers: { "Content-Type": type } });
-        } else {
-            res = await chunkedDataUploader(Readable.from(Buffer.from(data)), size, this.url, { contentType: type });
+        try {
+            if (size < (10 * Preweave.MiB)) {
+                res = await this.axios.post("/data", data, { headers: { "Content-Type": type } });
+            } else {
+                res = await chunkedDataUploader(Readable.from(Buffer.from(data)), size, this.url, { contentType: type });
+            }
+        } catch (e) {
+            return {
+                error: e.response.data
+            };
         }
+
 
         return {
             txId: res.data.txId
@@ -65,11 +73,17 @@ export default class Preweave {
         const type = mime.lookup(path) || "application/octet-stream";
         const size = (await fs.promises.stat(path)).size;
         let res;
-        if (size < (10 * Preweave.MiB)) {
-            res = await this.axios.post("/data", fs.createReadStream(path), { headers: { "Content-Type": type } });
-        } else {
-            const rstrm = fs.createReadStream(path);
-            res = await chunkedDataUploader(rstrm, size, this.url, { contentType: type });
+        try {
+            if (size < (10 * Preweave.MiB)) {
+                res = await this.axios.post("/data", fs.createReadStream(path), { headers: { "Content-Type": type } });
+            } else {
+                const rstrm = fs.createReadStream(path);
+                res = await chunkedDataUploader(rstrm, size, this.url, { contentType: type });
+            }
+        } catch (e) {
+            return {
+                error: e.response.data
+            };
         }
 
         return {
