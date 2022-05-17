@@ -10,15 +10,27 @@ import {checkAndThrow} from "./utils";
  * Chunking data uploader
  * @param dataStream - Readable for data
  * @param size - the size of the data (bytes)
+ * @param host
  * @param chunkSize - optional size to chunk the file - min 1_000_000, max 190_000_000 (in bytes)
  * @param batchSize - number of chunks to concurrently upload
+ * @param contentType
+ * @param soakPeriod
  */
 export async function chunkedDataUploader(
     dataStream: Readable,
     size: number,
     host: string,
-    { chunkSize = 10_000_000, batchSize = 10, contentType = "application/octet-stream" },
-): Promise<AxiosResponse> {
+    {
+        chunkSize = 10_000_000,
+        batchSize = 10,
+        contentType = "application/octet-stream",
+        soakPeriod
+    }: {
+        chunkSize?: number,
+        batchSize?: number,
+        contentType?: string,
+        soakPeriod: number
+    }): Promise<AxiosResponse> {
     // eslint-disable-next-line prefer-const
     let id: string;
 
@@ -83,7 +95,10 @@ export async function chunkedDataUploader(
 
     await Promise.allSettled(processing);
     const finishUpload = await axios.post(`${host}/chunk/${id}/-1`, "", {
-        headers: { "Content-Type": contentType ?? "application/octet-stream" },
+        headers: {
+            "Content-Type": contentType ?? "application/octet-stream" ,
+            "X-Soak-Period": soakPeriod
+        },
         timeout: (/** this.api.config.timeout ??**/ 100_000) * 10 // server side reconstruction can take a while
     })
 

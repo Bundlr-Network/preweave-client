@@ -6,14 +6,15 @@ import axios from "axios";
 // import {BinaryLike} from "crypto";
 import {Readable} from "stream";
 
-interface Options {
-    "content-type"?: string
-}
-
 type Status = "SUCCESS" | "FAIL";
 
 interface Statuses {
     [key: string]: Status
+}
+
+interface UploadOpts {
+    contentType: string;
+    soakPeriod: number;
 }
 
 interface UploadResponse {
@@ -39,7 +40,7 @@ export default class Preweave {
      * @param data
      * @param opts
      */
-    async upload(data: string | Uint8Array, opts?: Options): Promise<UploadResponse> {
+    async upload(data: string | Uint8Array, opts?: UploadOpts): Promise<UploadResponse> {
         const type = opts?.["content-type"] ?? "application/octet-stream";
         // @ts-ignore
         const size = data.length;
@@ -48,7 +49,7 @@ export default class Preweave {
             if (size < (10 * Preweave.MiB)) {
                 res = await this.axios.post("/data", data, { headers: { "Content-Type": type } });
             } else {
-                res = await chunkedDataUploader(Readable.from(Buffer.from(data)), size, this.url, { contentType: type });
+                res = await chunkedDataUploader(Readable.from(Buffer.from(data)), size, this.url, { contentType: type ?? opts?.contentType, soakPeriod: opts?.soakPeriod });
             }
         } catch (e) {
             throw new Error(`Error from PreWeave node: ${e.response.data}`);
@@ -64,18 +65,19 @@ export default class Preweave {
      * Uploads a file
      *
      * @param path
+     * @param opts
      */
-    async uploadFile(path: string): Promise<UploadResponse> {
+    async uploadFile(path: string, opts?: UploadOpts): Promise<UploadResponse> {
         path = resolve(path);
         const type = mime.lookup(path) || "application/octet-stream";
         const size = (await fs.promises.stat(path)).size;
         let res;
         try {
             if (size < (10 * Preweave.MiB)) {
-                res = await this.axios.post("/data", fs.createReadStream(path), { headers: { "Content-Type": type } });
+                res = await this.axios.post("/data", fs.createReadStream(path), { headers: { "Content-Type": opts?.contentType ?? type } });
             } else {
                 const rstrm = fs.createReadStream(path);
-                res = await chunkedDataUploader(rstrm, size, this.url, { contentType: type });
+                res = await chunkedDataUploader(rstrm, size, this.url, { contentType: type ?? opts?.contentType, soakPeriod: opts?.soakPeriod });
             }
         } catch (e) {
             throw new Error(`Error from PreWeave node: ${e.response.data}`);
