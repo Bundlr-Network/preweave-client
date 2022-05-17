@@ -1,7 +1,7 @@
 import { resolve } from "path";
 import mime from "mime-types";
 import * as fs from "fs";
-import {chunkedDataUploader} from "./chunked.js";
+import {chunkedDataUploader} from "./chunked";
 import axios from "axios";
 // import {BinaryLike} from "crypto";
 import {Readable} from "stream";
@@ -46,7 +46,6 @@ export default class Preweave {
         if (size < (10 * Preweave.MiB)) {
             res = await this.axios.post("/data", fs.createReadStream(path), { headers: { "Content-Type": type } });
         } else {
-            console.log("Big")
             const rstrm = fs.createReadStream(path);
             res = await chunkedDataUploader(rstrm, size, this.url, { contentType: type });
         }

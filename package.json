@@ -5,8 +5,8 @@
   "repository": "https://github.com/Bundlr-Network/PreWeave",
   "author": "Bundlr",
   "license": "MIT",
+  "main": "build/src/index.js",
   "scripts": {},
-  "type": "module",
   "dependencies": {
     "@types/async-retry": "^1.4.4",
     "@types/mime-types": "^2.1.1",

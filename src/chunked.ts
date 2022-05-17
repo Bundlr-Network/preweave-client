@@ -17,7 +17,7 @@ export async function chunkedDataUploader(
     dataStream: Readable,
     size: number,
     host: string,
-    { chunkSize = 10_000_000, batchSize = 5, contentType = "application/octet-stream" },
+    { chunkSize = 10_000_000, batchSize = 10, contentType = "application/octet-stream" },
 ): Promise<AxiosResponse> {
     // eslint-disable-next-line prefer-const
     let id: string;
@@ -46,7 +46,6 @@ export async function chunkedDataUploader(
 
     }
 
-    console.log(size);
     const getres = await axios.get(`${host}/chunk/${size}`);
 
     id = getres.data.id
@@ -78,10 +77,7 @@ export async function chunkedDataUploader(
         if (chunk.id % batchSize == 0) {
             await Promise.allSettled(processing);
         }
-        // console.log(`posting chunk ${chunk.id} - ${offset} (${offset + data.length})`)
-        // if (missing.includes(offset)) {
         processing.push(promiseFactory(data, offset))
-        //}
         offset += data.length
     }
 

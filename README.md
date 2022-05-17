@@ -4,6 +4,9 @@
 
 ### Upload data
 
+Uploads data to a Preweave node. If the data is large enough, chunking will
+be used internally.
+
 ```ts
 import Preweave from "preweave-client";
 
