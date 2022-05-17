@@ -13,8 +13,8 @@ interface Statuses {
 }
 
 interface UploadOpts {
-    contentType: string;
-    soakPeriod: number;
+    contentType?: string;
+    soakPeriod?: number;
 }
 
 interface UploadResponse {
@@ -47,7 +47,7 @@ export default class Preweave {
         let res;
         try {
             if (size < (10 * Preweave.MiB)) {
-                res = await this.axios.post("/data", data, { headers: { "Content-Type": type } });
+                res = await this.axios.post("/data", data, { headers: { "Content-Type": type, "X-Soak-Period": opts?.soakPeriod } });
             } else {
                 res = await chunkedDataUploader(Readable.from(Buffer.from(data)), size, this.url, { contentType: type ?? opts?.contentType, soakPeriod: opts?.soakPeriod });
             }
