@@ -58,5 +58,5 @@ config.json
 local.ecosystem.config.js
 /chunks
 
-__tests__/large-item
-__tests__/medium-item
+__tests__/*
+

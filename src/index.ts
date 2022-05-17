@@ -10,9 +10,20 @@ interface Options {
     "content-type"?: string
 }
 
+type Status = "SUCCESS" | "FAIL";
+
+interface Statuses {
+    [key: string]: Status
+}
+
+interface UploadResponse {
+    txId: string;
+}
+
 export default class Preweave {
     static MiB = 1024 * 1024;
     axios;
+
     constructor(private url: string, apiKey?: string) {
         this.axios = axios.create({
             baseURL: url,
@@ -22,7 +33,13 @@ export default class Preweave {
         })
     }
 
-    async upload(data: string | Uint8Array, opts?: Options): Promise<any> {
+    /**
+     * Uploads some arbitrary data
+     *
+     * @param data
+     * @param opts
+     */
+    async upload(data: string | Uint8Array, opts?: Options): Promise<UploadResponse> {
         const type = opts?.["content-type"] ?? "application/octet-stream";
         // @ts-ignore
         const size = data.length;
@@ -38,7 +55,12 @@ export default class Preweave {
         };
     }
 
-    async uploadFile(path: string): Promise<any> {
+    /**
+     * Uploads a file
+     *
+     * @param path
+     */
+    async uploadFile(path: string): Promise<UploadResponse> {
         path = resolve(path);
         const type = mime.lookup(path) || "application/octet-stream";
         const size = (await fs.promises.stat(path)).size;
@@ -55,15 +77,39 @@ export default class Preweave {
         };
     }
 
-    async makeTxsPermanent(txIds: string[]): Promise<any> {
+    /**
+     * Makes transactions permanent for the given list of transactions
+     *
+     * @param txIds
+     */
+    async makeTxsPermanent(txIds: string[]): Promise<Statuses> {
         return (await this.axios.post("/txs/confirm", txIds, { headers: { "Content-Type": "application/json" }})).data;
     }
 
-    async hideTxs(txIds: string[]): Promise<any> {
+    /**
+     * Hides transaction data for the given list of transactions
+     *
+     * @param txIds
+     */
+    async hideTxs(txIds: string[]): Promise<Statuses> {
         return (await this.axios.post("/txs/hide", txIds, { headers: { "Content-Type": "application/json" }})).data;
     }
 
-    async removeTxs(txIds: string[]): Promise<any> {
+    /**
+     * Hides transaction data for the given list of transactions
+     *
+     * @param txIds
+     */
+    async unhideTxs(txIds: string[]): Promise<Statuses> {
+        return (await this.axios.post("/txs/unhide", txIds, { headers: { "Content-Type": "application/json" }})).data;
+    }
+
+    /**
+     * Permanently removes the given transactions
+     *
+     * @param txIds
+     */
+    async removeTxs(txIds: string[]): Promise<Statuses> {
         return (await this.axios.post("/txs/remove", txIds, { headers: { "Content-Type": "application/json" }})).data;
     }
 }

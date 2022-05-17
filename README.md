@@ -29,6 +29,9 @@ await prweave.makeTxsPermanent([...list of tx IDs]);
 
 ```ts
 await prweave.hideTxs([...list of tx IDs]);
+
+// or to reveal them again
+await prweave.unhideTxs([...list of tx IDs]);
 ```
 
 ### Remove transactions
