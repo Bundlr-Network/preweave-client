@@ -101,7 +101,11 @@ export default class Preweave {
      * @param txIds
      */
     async hideTxs(txIds: string[]): Promise<Statuses> {
-        return (await this.axios.post("/txs/hide", txIds, { headers: { "Content-Type": "application/json" }})).data;
+        try {
+            return (await this.axios.post("/txs/hide", txIds, { headers: { "Content-Type": "application/json" }})).data;
+        } catch (e) {
+            throw new Error(`Error from PreWeave node: ${e.response.data}`);
+        }
     }
 
     /**
@@ -110,7 +114,11 @@ export default class Preweave {
      * @param txIds
      */
     async unhideTxs(txIds: string[]): Promise<Statuses> {
-        return (await this.axios.post("/txs/unhide", txIds, { headers: { "Content-Type": "application/json" }})).data;
+        try {
+            return (await this.axios.post("/txs/unhide", txIds, { headers: { "Content-Type": "application/json" }})).data;
+        } catch (e) {
+            throw new Error(`Error from PreWeave node: ${e.response.data}`);
+        }
     }
 
     /**
@@ -119,7 +127,11 @@ export default class Preweave {
      * @param txIds
      */
     async removeTxs(txIds: string[]): Promise<Statuses> {
-        return (await this.axios.post("/txs/remove", txIds, { headers: { "Content-Type": "application/json" }})).data;
+        try {
+            return (await this.axios.post("/txs/remove", txIds, { headers: { "Content-Type": "application/json" }})).data;
+        } catch (e) {
+            throw new Error(`Error from PreWeave node: ${e.response.data}`);
+        }
     }
 }
 
