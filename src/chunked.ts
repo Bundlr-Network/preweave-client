@@ -4,7 +4,7 @@ import retry from "async-retry";
 // import { PassThrough } from "stream"
 import axios, { AxiosResponse } from "axios";
 import SizeChunker from "./size-chunker";
-import {checkAndThrow} from "./utils";
+import { checkAndThrow } from "./utils";
 
 /**
  * Chunking data uploader
@@ -94,12 +94,15 @@ export async function chunkedDataUploader(
     }
 
     await Promise.allSettled(processing);
+    let headers = {
+        "Content-Type": contentType ?? "application/octet-stream",
+    }
+    if (soakPeriod) {
+        headers["X-Soak-Period"] = soakPeriod
+    }
     const finishUpload = await axios.post(`${host}/chunk/${id}/-1`, "", {
-        headers: {
-            "Content-Type": contentType ?? "application/octet-stream" ,
-            "X-Soak-Period": soakPeriod
-        },
-        timeout: (/** this.api.config.timeout ??**/ 100_000) * 10 // server side reconstruction can take a while
+        headers,
+        timeout: /** this.api.config.timeout ??**/ 100_000 * 10 // server side reconstruction can take a while
     })
 
     // this will throw if the dataItem reconstruction fails
