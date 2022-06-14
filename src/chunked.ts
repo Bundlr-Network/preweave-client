@@ -46,7 +46,7 @@ export async function chunkedDataUploader(
         return new Promise((r) => {
             retry(
                 async () => {
-                    axios.post(`${host}/chunk/${id}/${o}`, d, {
+                    await axios.post(`${host}/chunk/${id}/${o}`, d, {
                         headers: { "Content-Type": "application/octet-stream" },
                         maxBodyLength: Infinity,
                         maxContentLength: Infinity,
@@ -72,8 +72,7 @@ export async function chunkedDataUploader(
     }
 
 
-    let offset = 0;
-    const processing = []
+
 
     const ckr = new SizeChunker({
         chunkSize: chunkSize,
@@ -83,17 +82,20 @@ export async function chunkedDataUploader(
 
     dataStream.pipe(ckr);
 
+    let offset = 0;
+    let processing = []
 
     for await (const chunk of ckr) {
         const data = chunk.data
-        if (chunk.id % batchSize == 0) {
-            await Promise.allSettled(processing);
-        }
         processing.push(promiseFactory(data, offset))
+        if (processing.length === batchSize) {
+            await Promise.all(processing);
+            processing = [];
+        }
         offset += data.length
     }
 
-    await Promise.allSettled(processing);
+    await Promise.all(processing);
     let headers = {
         "Content-Type": contentType ?? "application/octet-stream",
     }
