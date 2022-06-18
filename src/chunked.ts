@@ -1,7 +1,5 @@
 import { Readable } from "stream";
 import retry from "async-retry";
-// import SizeChunker from "../src/utils/chunker";
-// import { PassThrough } from "stream"
 import axios, { AxiosResponse } from "axios";
 import SizeChunker from "./size-chunker";
 import { checkAndThrow } from "./utils";
@@ -31,12 +29,6 @@ export async function chunkedDataUploader(
         contentType?: string,
         soakPeriod: number
     }): Promise<AxiosResponse> {
-    // eslint-disable-next-line prefer-const
-    let id: string;
-
-    // if (chunkSize < 1_000_000 || chunkSize > 190_000_000) {
-    //     throw new Error("Invalid chunk size - must be between 1,000,000 and 190,000,000 bytes")
-    // }
 
     if (batchSize < 1) {
         throw new Error("batch size too small! must be >=1")
@@ -60,7 +52,7 @@ export async function chunkedDataUploader(
 
     const getres = await axios.get(`${host}/chunk/${size}`);
 
-    id = getres.data.id
+    const id = getres.data.id
 
     const remainder = size % chunkSize;
     const chunks = (size - remainder) / chunkSize;
@@ -71,14 +63,10 @@ export async function chunkedDataUploader(
         missing.push(s);
     }
 
-
-
-
     const ckr = new SizeChunker({
         chunkSize: chunkSize,
         flushTail: true
     })
-    // const ckr = new PassThrough()
 
     dataStream.pipe(ckr);
 
