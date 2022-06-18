@@ -84,7 +84,7 @@ export async function chunkedDataUploader(
     }
 
     await Promise.all(processing);
-    let headers = {
+    const headers = {
         "Content-Type": contentType ?? "application/octet-stream",
     }
     if (soakPeriod) {

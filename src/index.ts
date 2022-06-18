@@ -22,6 +22,7 @@ interface UploadResponse {
 }
 
 export default class Preweave {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     static MiB = 1024 * 1024;
     axios;
 
@@ -42,7 +43,6 @@ export default class Preweave {
      */
     async upload(data: string | Uint8Array, opts?: UploadOpts): Promise<UploadResponse> {
         const type = opts?.["content-type"] ?? "application/octet-stream";
-        // @ts-ignore
         const size = data.length;
         let res;
         try {
