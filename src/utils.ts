@@ -1,4 +1,5 @@
 import { AxiosResponse } from "axios";
+import { PathLike, promises } from "fs";
 
 /**
  * Throws an error if the provided axios reponse has a status code != 200, optionally checks a list of status codes to ignore.
@@ -11,3 +12,5 @@ export function checkAndThrow(res: AxiosResponse<any>, context?: string, excepti
         throw new Error(`HTTP Error: ${context}: ${res.status} ${typeof res.data !== "string" ? res.statusText : res.data}`);
     }
 }
+
+export const checkPath = async (path: PathLike): Promise<boolean> => { return promises.stat(path).then(_ => true).catch(_ => false) }
