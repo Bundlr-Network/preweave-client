@@ -1,15 +1,14 @@
-import path, { resolve } from "path";
 import mime from "mime-types";
 import * as fs from "fs";
 import { chunkedDataUploader } from "./chunked";
 import axios, { Axios } from "axios";
 // import {BinaryLike} from "crypto";
 import { Readable } from "stream";
-import { checkAndThrow, checkPath } from "./utils";
+import { checkAndThrow, walk } from "./utils";
 import PromisePool from "@supercharge/promise-pool/dist";
 import { Upload } from "@aws-sdk/lib-storage";
 import { CompleteMultipartUploadCommandOutput, S3Client } from "@aws-sdk/client-s3";
-
+import { relative, resolve } from "path"
 
 type Status = "SUCCESS" | "FAIL";
 
@@ -18,8 +17,8 @@ interface Statuses {
 }
 
 interface UploadOpts {
-    contentType?: string;
-    soakPeriod?: number;
+    "content-type"?: string;
+    "soak-period"?: number;
 }
 
 interface UploadResponse {
@@ -28,13 +27,26 @@ interface UploadResponse {
 
 interface AtomicItem {
     name: string
-    data: Readable | Buffer | string
+    data: Readable | Buffer | string,
+    metadata?: {
+        "content-type"?: string
+    }
 }
 
 
 interface PoolResult {
     results: any[], errors: any[]
 }
+interface ManifestPoolResult extends PoolResult {
+    manifest: string
+}
+
+export const baseManifest = {
+    "manifest": "arweave/paths",
+    "version": "0.1.0",
+    "paths": {}
+}
+
 export default class Preweave {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     static MiB = 1024 * 1024;
@@ -73,9 +85,9 @@ export default class Preweave {
         let res;
         try {
             if (size < (10 * Preweave.MiB)) {
-                res = await this.axios.post("/data", data, { headers: { "Content-Type": type, "X-Soak-Period": opts?.soakPeriod } });
+                res = await this.axios.post("/data", data, { headers: { "Content-Type": type, "X-Soak-Period": opts?.["soak-period"] ?? 0 } });
             } else {
-                res = await chunkedDataUploader(Readable.from(Buffer.from(data)), size, this.url, { contentType: type ?? opts?.contentType, soakPeriod: opts?.soakPeriod });
+                res = await chunkedDataUploader(Readable.from(Buffer.from(data)), size, this.url, { contentType: type, soakPeriod: opts?.["soak-period"] ?? 0 });
             }
         } catch (e) {
             throw new Error(`Error from PreWeave node: ${e.response.data}`);
@@ -100,10 +112,10 @@ export default class Preweave {
         let res;
         try {
             if (size < (10 * Preweave.MiB)) {
-                res = await this.axios.post("/data", fs.createReadStream(path), { headers: { "Content-Type": opts?.contentType ?? type } });
+                res = await this.axios.post("/data", fs.createReadStream(path), { headers: { "Content-Type": opts?.["content-type"] ?? type, "X-Soak-Period": opts?.["soak-period"] ?? 0 } });
             } else {
                 const rstrm = fs.createReadStream(path);
-                res = await chunkedDataUploader(rstrm, size, this.url, { contentType: type ?? opts?.contentType, soakPeriod: opts?.soakPeriod });
+                res = await chunkedDataUploader(rstrm, size, this.url, { contentType: type ?? opts?.["content-type"], soakPeriod: opts?.["soak-period"] });
             }
         } catch (e) {
             throw new Error(`Error from PreWeave node: ${e.response.data}`);
@@ -162,22 +174,35 @@ export default class Preweave {
         }
     }
 
+
     /**
-     * Uploads the list of provided parts as an atomic group - all items must be present
-     * before other processing (exporting, permanence) can occur.
-     * @param paths - a list of FS paths to upload
-     * @returns - the result(s) of the upload
+     * Uploads a directory as an atomic group
+     * @param path - directory to upload
+     * @param genManifest - whether to generate + upload a manifest
+     * @returns - Result of the processing pool, with the id of the generated manifest if applicable
      */
-    async atomicUploadFiles(paths: string[]): Promise<PoolResult> {
-        const key = await this.initialiseAtomicUpload(paths)
-        const items = await Promise.all(paths.map(async (p) => {
-            if (!await checkPath(p)) throw new Error(`Invalid path provided: ${p}`)
-            return { name: path.basename(p), data: fs.createReadStream(p) }
-        }))
-        const poolRes = await this.atomicUpload(items, key)
+    async uploadAtomicDir(path: string, genManifest?: boolean): Promise<PoolResult | ManifestPoolResult> {
+        const items = []
+        for await (const f of walk(path)) {
+            const relPath = relative(path, f)
+
+            const contentType = mime.contentType(mime.lookup(f) || "application/octet-stream") as string
+
+            items.push({
+                name: relPath,
+                data: fs.createReadStream(f),
+                metadata: {
+                    "content-type": contentType
+                }
+            })
+        }
+        const key = await this.initialiseAtomicUpload(items.map(i => i.name))
+
+        const res = await this.atomicUpload(items, key, genManifest)
         await this.finishAtomicUpload(key)
-        return poolRes
+        return res
     }
+
 
     /**
      * Uploads a set of tuple items as part of an atomic group
@@ -185,14 +210,22 @@ export default class Preweave {
      * @param key - the atomic group ID/key to upload these items to
      * @returns  - the results of the upload
      */
-    async atomicUpload(items: AtomicItem[], key: string): Promise<PoolResult> {
-        return new PromisePool()
+    async atomicUpload(items: AtomicItem[], key: string, genManifest?: boolean): Promise<PoolResult | ManifestPoolResult> {
+        const pool = await new PromisePool()
             .withConcurrency(10)
             .for(items)
             .process(async (item: AtomicItem) => {
-                return await this.uploadAtomicItem(item.name, item.data, key)
+                return { id: await this.uploadAtomicItem(item, key), name: item.name }
             })
+        if (!genManifest) return pool;
+        const manifest = baseManifest
+        for (const result of pool.results) {
+            manifest.paths[result.name] = { id: result.id }
+        }
+        const res = await this.upload(JSON.stringify(manifest), { "content-type": "application/x.arweave-manifest+json" })
+        return { ...pool, manifest: res.txId }
     }
+
 
     /**
      * Initialises an atomic upload - creates an atomic group for the provided names
@@ -208,22 +241,22 @@ export default class Preweave {
 
     /**
      * Uploads an atomic item to the specified atomic group
-     * @param name - the name of the item (should be an entry in the initialise names list)
-     * @param data - data to upload
      * @param key - the key for the atomic group to associate this item with
      * @returns 
      */
-    async uploadAtomicItem(name: string, data: AtomicItem["data"], key: string): Promise<CompleteMultipartUploadCommandOutput> {
+    async uploadAtomicItem(item: AtomicItem, key: string): Promise<string> {
         const upload = new Upload({
             client: this.S3,
             params: {
-                Bucket: "preweave-txs", Key: name, Body: data, Metadata: {
-                    "atomic-name": name,
-                    "atomic-upload-id": key
+                Bucket: "preweave-txs", Key: item.name, Body: item.data, Metadata: {
+                    "atomic-name": item.name,
+                    "atomic-upload-id": key,
+                    ...item.metadata
                 }
             }
         })
-        return await upload.done()
+        const res = await upload.done() as CompleteMultipartUploadCommandOutput
+        return res.ETag ?? res.$metadata.requestId
     }
 
     /**
