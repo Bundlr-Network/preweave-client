@@ -76,8 +76,8 @@ export default class Preweave {
     /**
      * Uploads some arbitrary data
      *
-     * @param data
-     * @param opts
+     * @param data - data to upload, strings will be converted assuming UTF8 encoding
+     * @param opts - options for the upload, including content-type and soak period
      */
     async upload(data: string | Uint8Array, opts?: UploadOpts): Promise<UploadResponse> {
         const type = opts?.["content-type"] ?? "application/octet-stream";
@@ -102,8 +102,8 @@ export default class Preweave {
     /**
      * Uploads a file
      *
-     * @param path
-     * @param opts
+     * @param path - path to the file to upload
+     * @param opts - options for the upload, including content-type (overrides detected type) and soak period
      */
     async uploadFile(path: string, opts?: UploadOpts): Promise<UploadResponse> {
         path = resolve(path);
@@ -127,9 +127,9 @@ export default class Preweave {
     }
 
     /**
-     * Makes transactions permanent for the given list of transactions
+     * Makes a given list of transaction IDs permanent
      *
-     * @param txIds
+     * @param txIds - list of transaction IDs to make permanent
      */
     async makeTxsPermanent(txIds: string[]): Promise<Statuses> {
         return (await this.axios.post("/txs/confirm", txIds, { headers: { "Content-Type": "application/json" } })).data;
@@ -138,7 +138,7 @@ export default class Preweave {
     /**
      * Hides transaction data for the given list of transactions
      *
-     * @param txIds
+     * @param txIds - list of transaction IDs to hide
      */
     async hideTxs(txIds: string[]): Promise<Statuses> {
         try {
@@ -149,9 +149,9 @@ export default class Preweave {
     }
 
     /**
-     * Hides transaction data for the given list of transactions
+     * Unhides transaction data for the given list of transactions
      *
-     * @param txIds
+     * @param txIds - list of transaction IDs to unhide
      */
     async unhideTxs(txIds: string[]): Promise<Statuses> {
         try {
@@ -205,10 +205,10 @@ export default class Preweave {
 
 
     /**
-     * Uploads a set of tuple items as part of an atomic group
+     * Uploads a set of atomic items as part of an atomic group
      * @param items - list of type AtomicItems to upload
      * @param key - the atomic group ID/key to upload these items to
-     * @returns  - the results of the upload
+     * @returns  - Result of the processing pool, with the id of the generated manifest if applicable
      */
     async atomicUpload(items: AtomicItem[], key: string, genManifest?: boolean): Promise<PoolResult | ManifestPoolResult> {
         const pool = await new PromisePool()
@@ -242,7 +242,7 @@ export default class Preweave {
     /**
      * Uploads an atomic item to the specified atomic group
      * @param key - the key for the atomic group to associate this item with
-     * @returns 
+     * @returns - the ID the item has been assigned
      */
     async uploadAtomicItem(item: AtomicItem, key: string): Promise<string> {
         const upload = new Upload({
@@ -262,7 +262,7 @@ export default class Preweave {
     /**
      * Attempts to finalise an atomic upload - will throw if any items are missing.
      * @param key - the key for the atomic group to finalise
-     * @returns - nothing
+     * @returns - nothing, but will throw if the finalisation fails
      */
     async finishAtomicUpload(key: string): Promise<void> {
         return checkAndThrow(await this.axios.post("/atomic/finish", { key }))
