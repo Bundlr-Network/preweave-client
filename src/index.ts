@@ -33,13 +33,16 @@ interface AtomicItem {
     }
 }
 
+interface AtomicResult {
+    name: string
+    id: string
+}
 
 interface PoolResult {
-    results: any[], errors: any[]
+    data: AtomicResult[]
+    manifest?: string
 }
-interface ManifestPoolResult extends PoolResult {
-    manifest: string
-}
+
 
 export const baseManifest = {
     "manifest": "arweave/paths",
@@ -181,7 +184,7 @@ export default class Preweave {
      * @param genManifest - whether to generate + upload a manifest
      * @returns - Result of the processing pool, with the id of the generated manifest if applicable
      */
-    async uploadAtomicDir(path: string, genManifest?: boolean): Promise<PoolResult | ManifestPoolResult> {
+    async uploadAtomicDir(path: string, genManifest?: boolean): Promise<PoolResult> {
         const items = []
         for await (const f of walk(path)) {
             const relPath = relative(path, f)
@@ -210,20 +213,21 @@ export default class Preweave {
      * @param key - the atomic group ID/key to upload these items to
      * @returns  - Result of the processing pool, with the id of the generated manifest if applicable
      */
-    async atomicUpload(items: AtomicItem[], key: string, genManifest?: boolean): Promise<PoolResult | ManifestPoolResult> {
+    async atomicUpload(items: AtomicItem[], key: string, genManifest?: boolean): Promise<PoolResult> {
         const pool = await new PromisePool()
             .withConcurrency(10)
             .for(items)
+            .handleError((e) => { throw e })
             .process(async (item: AtomicItem) => {
-                return { id: await this.uploadAtomicItem(item, key), name: item.name }
+                return { id: await this.uploadAtomicItem(item, key), name: item.name } as AtomicResult
             })
-        if (!genManifest) return pool;
+        if (!genManifest) return { data: pool.results };
         const manifest = baseManifest
         for (const result of pool.results) {
             manifest.paths[result.name] = { id: result.id }
         }
         const res = await this.upload(JSON.stringify(manifest), { "content-type": "application/x.arweave-manifest+json" })
-        return { ...pool, manifest: res.txId }
+        return { data: pool.results, manifest: res.txId }
     }
 
 
